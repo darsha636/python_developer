@@ -1,6 +1,6 @@
-name = "Darsha"
+name = "Shankar"
 age = 22
-city = "Vadodara"
+city = "Indore"
 
 print(name)
 print(age)
