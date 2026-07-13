@@ -1,13 +1,25 @@
 import ast
 import sqlite3
+import os
 from datetime import datetime
 
 # Connect to SQLite database
 connection = sqlite3.connect("pychronicle.db")
 cursor = connection.cursor()
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS variables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,
+    line_number INTEGER NOT NULL,
+    variable_name TEXT NOT NULL,
+    serialized_value TEXT NOT NULL
+)
+""")
+
 # Read the Python file
-with open("sample_code/example.py", "r") as file:
+file_path = os.path.join(os.path.dirname(__file__), "..", "sample_code", "example.py")
+with open(file_path, "r") as file:
     code = file.read()
 
 # Convert Python code into AST
