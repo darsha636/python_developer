@@ -7,10 +7,23 @@ try:
     connection = sqlite3.connect("pychronicle.db")
     cursor = connection.cursor()
 
+    # Create table if it doesn't exist
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS variables (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        line_number INTEGER NOT NULL,
+        variable_name TEXT NOT NULL,
+        serialized_value TEXT NOT NULL,
+        data_type TEXT NOT NULL
+    )
+    """)
+    connection.commit()
+
     # Clear previous records
     cursor.execute("DELETE FROM variables")
     connection.commit()
-
 
     # Read the Python file
     file_name = "sample_code/example.py"
@@ -31,13 +44,9 @@ try:
             for target in node.targets:
                 if isinstance(target, ast.Name):
 
-                    # Variable name
                     variable_name = target.id
-
-                    # Line number
                     line_number = node.lineno
 
-                    # Variable value and data type
                     if isinstance(node.value, ast.Constant):
                         value = str(node.value.value)
                         data_type = type(node.value.value).__name__
@@ -45,10 +54,9 @@ try:
                         value = "Unsupported"
                         data_type = "Unknown"
 
-                    # Current timestamp
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                    # Save data into SQLite database
+                    # Store data in database
                     cursor.execute("""
                     INSERT INTO variables
                     (timestamp, file_name, line_number,
