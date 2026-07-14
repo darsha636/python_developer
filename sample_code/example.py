@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Shankar's details
 name = "Shankar"
 age = 22
@@ -24,3 +25,12 @@ city3 = "Vadodara"
 print(name3)
 print(age3)
 print(city3)
+=======
+name = "samhitha"
+age = 22
+city = "Telangana"
+
+print(name)
+print(age)
+print(city)
+>>>>>>> origin/main
