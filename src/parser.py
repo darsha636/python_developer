@@ -3,68 +3,96 @@ import sqlite3
 import os
 from datetime import datetime
 
-# Connect to SQLite database
-connection = sqlite3.connect("pychronicle.db")
-cursor = connection.cursor()
+try:
+    # Connect to SQLite database
+    connection = sqlite3.connect("pychronicle.db")
+    cursor = connection.cursor()
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS variables (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT NOT NULL,
-    line_number INTEGER NOT NULL,
-    variable_name TEXT NOT NULL,
-    serialized_value TEXT NOT NULL
-)
-""")
+    # Create table if it doesn't exist
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS variables (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL,
+        file_name TEXT NOT NULL,
+        line_number INTEGER NOT NULL,
+        variable_name TEXT NOT NULL,
+        serialized_value TEXT NOT NULL,
+        data_type TEXT NOT NULL
+    )
+    """)
+    connection.commit()
 
-# Read the Python file
-file_path = os.path.join(os.path.dirname(__file__), "..", "sample_code", "example.py")
-with open(file_path, "r") as file:
-    code = file.read()
+    # Clear previous records
+    cursor.execute("DELETE FROM variables")
+    connection.commit()
 
-# Convert Python code into AST
-tree = ast.parse(code)
+    # Read the Python file
+    file_name = "sample_code/example.py"
 
-print("Variable Assignments:\n")
+    with open(file_name, "r") as file:
+        code = file.read()
 
-# Find all variable assignments
-for node in ast.walk(tree):
-    if isinstance(node, ast.Assign):
-        for target in node.targets:
-            if isinstance(target, ast.Name):
+    # Convert Python code into AST
+    tree = ast.parse(code)
 
-                # Variable name
-                variable_name = target.id
+    print("===== Variable Assignments =====\n")
 
-                # Line number
-                line_number = node.lineno
+    variable_count = 0
 
-                # Variable value
-                if isinstance(node.value, ast.Constant):
-                    value = str(node.value.value)
-                else:
-                    value = "Unsupported"
+    # Find all variable assignments
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
 
-                # Current timestamp
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    variable_name = target.id
+                    line_number = node.lineno
 
-                # Save data into SQLite database
-                cursor.execute("""
-                INSERT INTO variables
-                (timestamp, line_number, variable_name, serialized_value)
-                VALUES (?, ?, ?, ?)
-                """, (timestamp, line_number, variable_name, value))
+                    if isinstance(node.value, ast.Constant):
+                        value = str(node.value.value)
+                        data_type = type(node.value.value).__name__
+                    else:
+                        value = "Unsupported"
+                        data_type = "Unknown"
 
-                # Print output
-                print(f"Variable: {variable_name}")
-                print(f"Line Number: {line_number}")
-                print(f"Value: {value}")
-                print("-------------------")
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# Save all changes
-connection.commit()
+                    # Store data in database
+                    cursor.execute("""
+                    INSERT INTO variables
+                    (timestamp, file_name, line_number,
+                     variable_name, serialized_value, data_type)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        timestamp,
+                        file_name,
+                        line_number,
+                        variable_name,
+                        value,
+                        data_type
+                    ))
 
-# Close the database
-connection.close()
+                    variable_count += 1
 
-print("All variables saved successfully!")
+                    # Print output
+                    print(f"File Name     : {file_name}")
+                    print(f"Variable Name : {variable_name}")
+                    print(f"Line Number   : {line_number}")
+                    print(f"Value         : {value}")
+                    print(f"Data Type     : {data_type}")
+                    print("------------------------------")
+
+    # Save all changes
+    connection.commit()
+
+    print("\n===== Summary =====")
+    print(f"Total Variables : {variable_count}")
+    print("Database        : pychronicle.db")
+    print("Status          : Success")
+
+except Exception as e:
+    print("Error:", e)
+
+finally:
+    if 'connection' in locals():
+        connection.close()
