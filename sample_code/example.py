@@ -1,6 +1,7 @@
-name = "Darsha"
-age = 22
-city = "Vadodara"
+name2 = "Darsha"
+age2 =20
+city2 = "Vadodara"
 
-print(name)
-print(age)
+print(name2)
+print(age2)
+print(city2)
