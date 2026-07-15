@@ -1,7 +1,11 @@
 import sqlite3
 
 # Connect to the database (creates it if it doesn't exist)
-connection = sqlite3.connect("pychronicle.db")
+import os
+import sqlite3
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "pychronicle.db")
+connection = sqlite3.connect(DB_PATH)
 
 cursor = connection.cursor()
 
