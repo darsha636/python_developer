@@ -1,13 +1,25 @@
-def calculate_sum(limit):
-    total = 0
-    for i in range(limit):
-        total += i
-    return total
+def demo():
 
-def main():
-    target = 5
-    result = calculate_sum(target)
-    final_message = "Done"
+    age = 22
+    name = "samhitha"
+    salary = 25000.50
+    is_student = True
+    marks = [90, 95, 88]
+    student = {
+        "name": "samhitha" ,
+        "age": 22
+    }
+    point = (10, 20)
+    value = None
 
-if __name__ == "__main__":
-    main()
+    print(age)
+    print(name)
+    print(salary)
+    print(is_student)
+    print(marks)
+    print(student)
+    print(point)
+    print(value)
+
+
+demo()
