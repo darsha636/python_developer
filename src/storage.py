@@ -1,5 +1,6 @@
 import sqlite3
 import datetime
+import json
 
 # Internal step counter for chronological ordering
 _step_counter = 0
@@ -45,10 +46,14 @@ def record_event(conn, line_number, variable_name, value, function_name="<module
     _step_counter += 1
     
     cursor = conn.cursor()
-    timestamp = datetime.datetime.now().isoformat()
-    val_repr = repr(value)
+   # Serialize the value safely as JSON
+    try:
+        val_repr = json.dumps(value)
+    except TypeError:
+        val_repr = json.dumps(str(value))
+
     val_type = type(value).__name__
-    
+    timestamp = datetime.datetime.now().isoformat()
     cursor.execute("""
         INSERT INTO trace_events (step, timestamp, line_number, function_name, variable_name, variable_value, value_type)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -80,3 +85,23 @@ def count_events(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM trace_events")
     return cursor.fetchone()[0]
+
+def get_state_at(conn, step):
+    """
+    Returns the latest value of every distinct variable as of the given step.
+    Useful for presenting a consolidated snapshot of the program state.
+    """
+    cursor = conn.cursor()
+    query = """
+        SELECT t1.*
+        FROM trace_events t1
+        INNER JOIN (
+            SELECT variable_name, MAX(step) as max_step
+            FROM trace_events
+            WHERE step <= ?
+            GROUP BY variable_name
+        ) t2 ON t1.variable_name = t2.variable_name AND t1.step = t2.max_step
+        ORDER BY t1.variable_name ASC
+    """
+    cursor.execute(query, (step,))
+    return cursor.fetchall()
