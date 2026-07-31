@@ -15,7 +15,7 @@ cursor.execute("DROP TABLE IF EXISTS variables")
 
 # Create new table
 cursor.execute("""
-CREATE TABLE variables (
+CREATE TABLE IF NOT EXISTS variables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT,
     file_name TEXT,
@@ -25,8 +25,20 @@ CREATE TABLE variables (
     data_type TEXT
 )
 """)
+# Add compressed delta column if it does not already exist
+cursor.execute("PRAGMA table_info(variables)")
+columns = [column[1] for column in cursor.fetchall()]
 
+if "compressed_delta" not in columns:
+    cursor.execute("""
+        ALTER TABLE variables
+        ADD COLUMN compressed_delta BLOB
+    """)
+
+    print("compressed_delta column added successfully.")
+else:
+    print("compressed_delta column already exists.")
 connection.commit()
 connection.close()
 
-print("Database and table created successfully!")
+print("Database setup completed successfully!")
