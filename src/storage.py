@@ -85,3 +85,23 @@ def count_events(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM trace_events")
     return cursor.fetchone()[0]
+
+def get_state_at(conn, step):
+    """
+    Returns the latest value of every distinct variable as of the given step.
+    Useful for presenting a consolidated snapshot of the program state.
+    """
+    cursor = conn.cursor()
+    query = """
+        SELECT t1.*
+        FROM trace_events t1
+        INNER JOIN (
+            SELECT variable_name, MAX(step) as max_step
+            FROM trace_events
+            WHERE step <= ?
+            GROUP BY variable_name
+        ) t2 ON t1.variable_name = t2.variable_name AND t1.step = t2.max_step
+        ORDER BY t1.variable_name ASC
+    """
+    cursor.execute(query, (step,))
+    return cursor.fetchall()
