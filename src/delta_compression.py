@@ -1,57 +1,128 @@
-import json
+import pickle
 import zlib
 
 
 def create_delta(previous_state, current_state):
     """
-    Create a delta containing only the values that changed.
+    Create a delta containing only the changes between two states.
     """
 
-    delta = {}
+    delta = {
+        "added": {},
+        "modified": {},
+        "deleted": {}
+    }
 
-    all_keys = set(previous_state) | set(current_state)
+    # Detect added and modified variables
+    for key, current_value in current_state.items():
 
-    for key in all_keys:
+        if key not in previous_state:
+            delta["added"][key] = current_value
 
-        old_value = previous_state.get(key)
-        new_value = current_state.get(key)
+        elif previous_state[key] != current_value:
+            delta["modified"][key] = current_value
 
-        if old_value != new_value:
-            delta[key] = new_value
+    # Detect deleted variables
+    for key in previous_state:
+
+        if key not in current_state:
+            delta["deleted"][key] = previous_state[key]
 
     return delta
 
 
 def compress_delta(delta):
     """
-    Convert the delta to JSON and compress it using zlib.
+    Serialize and compress the delta.
     """
 
-    json_data = json.dumps(delta).encode("utf-8")
+    serialized = pickle.dumps(delta)
 
-    compressed_data = zlib.compress(json_data)
+    compressed = zlib.compress(serialized)
 
-    return compressed_data
+    return compressed
 
 
 def decompress_delta(compressed_data):
     """
-    Decompress the delta and convert it back to a dictionary.
+    Decompress and deserialize the delta.
     """
 
-    json_data = zlib.decompress(compressed_data).decode("utf-8")
+    serialized = zlib.decompress(compressed_data)
 
-    return json.loads(json_data)
+    delta = pickle.loads(serialized)
+
+    return delta
 
 
 def reconstruct_state(previous_state, delta):
     """
-    Apply the delta to the previous state
-    and reconstruct the current state.
+    Reconstruct the current state using the previous state and delta.
     """
 
-    reconstructed_state = previous_state.copy()
+    reconstructed = previous_state.copy()
 
-    reconstructed_state.update(delta)
+    # Add new variables
+    for key, value in delta["added"].items():
+        reconstructed[key] = value
 
-    return reconstructed_state
+    # Apply modified variables
+    for key, value in delta["modified"].items():
+        reconstructed[key] = value
+
+    # Remove deleted variables
+    for key in delta["deleted"]:
+        reconstructed.pop(key, None)
+
+    return reconstructed
+
+
+if __name__ == "__main__":
+
+    previous_state = {
+        "name": "samhitha",
+        "age": 21,
+        "city": "Hyderabad",
+        "salary": 35000
+    }
+
+    current_state = {
+        "name": "samhitha",
+        "age": 22,
+        "city": "Hyderabad",
+        "salary": 40000
+    }
+
+    print("Previous state:")
+    print(previous_state)
+
+    print("\nCurrent state:")
+    print(current_state)
+
+    delta = create_delta(previous_state, current_state)
+
+    print("\nDelta:")
+    print(delta)
+
+    compressed = compress_delta(delta)
+
+    print("\nOriginal delta size:", len(pickle.dumps(delta)), "bytes")
+    print("Compressed delta size:", len(compressed), "bytes")
+
+    decompressed = decompress_delta(compressed)
+
+    print("\nDecompressed delta:")
+    print(decompressed)
+
+    reconstructed = reconstruct_state(
+        previous_state,
+        decompressed
+    )
+
+    print("\nReconstructed state:")
+    print(reconstructed)
+
+    if reconstructed == current_state:
+        print("\nSUCCESS: State reconstructed correctly.")
+    else:
+        print("\nERROR: State reconstruction failed.")
