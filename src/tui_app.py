@@ -1,7 +1,11 @@
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static
+from textual.widgets import Header, Footer, Static 
 from textual.reactive import reactive
 from textual.binding import Binding
+from storage import create_connection, get_state_at, count_events
+
+with open("sample_code/sample_target.py", "r", encoding="utf-8") as f:
+    CODE_LINES = f.read().splitlines()
 
 # --- DUMMY DATA ---
 # Each dictionary represents the state at a particular step.
@@ -33,7 +37,7 @@ class CodeView(Static):
     
     def render(self) -> str:
         lines = []
-        for i, line in enumerate(DUMMY_CODE, start=1):
+        for i, line in enumerate(CODE_LINES, start=1):
             if i == self.active_line:
                 # Highlight the active line with a marker and reverse video
                 lines.append(f"[reverse]▶ {i:3} | {line}[/reverse]")
@@ -119,7 +123,12 @@ class PyChronicleApp(App):
         yield Footer()
         
     def on_mount(self) -> None:
-        self.max_step = len(DUMMY_TRACE) - 1
+        self.conn = create_connection(in_memory=False)
+
+        self.max_step = count_events(self.conn)
+
+        self.current_step = 1
+
         self.update_panes()
         
     def watch_current_step(self, old_step: int, new_step: int) -> None:
@@ -133,10 +142,19 @@ class PyChronicleApp(App):
         # events = get_state_at(conn, self.current_step)
         # variables = {row[5]: row[6] for row in events} # variable_name -> variable_value
         # active_line = ... (you might need to fetch the active line from a different query or logic)
+        events = get_state_at(self.conn, self.current_step)
+
+        variables = {}
+        active_line = 0
+
+        for row in events:
+            # row = (id, step, timestamp, line_number,
+            #        function_name, variable_name,
+            #        variable_value, value_type)
+
+            active_line = row[3]
+            variables[row[5]] = row[6]
         
-        trace_data = DUMMY_TRACE[self.current_step]
-        active_line = trace_data["line"]
-        variables = trace_data["vars"]
         
         # Update CodeView
         code_view = self.query_one(CodeView)

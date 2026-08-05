@@ -86,7 +86,7 @@ def run_with_trace(file_path):
     Returns a SQLite connection to the in-memory database containing the recorded events.
     """
     # 1. Set up a fresh in-memory storage connection
-    conn = storage.create_connection(in_memory=True)
+    conn = storage.create_connection(in_memory=False)
     tracer = Tracer(conn)
     
     with open(file_path, "r", encoding="utf-8") as f:
