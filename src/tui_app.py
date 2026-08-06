@@ -31,11 +31,9 @@ import os
 from typing import Optional
 
 from textual.app import App, ComposeResult
-from textual.binding import Binding
-from textual.containers import Horizontal, Vertical, ScrollableContainer
+from textual.widgets import Header, Footer, Static
 from textual.reactive import reactive
-from textual.widgets import Footer, Header, Input, Label, Static
-from textual.screen import ModalScreen
+from textual.binding import Binding
 
 # ---------------------------------------------------------------------------
 # data_source is the only link to the DB — the UI never touches storage.py
@@ -191,58 +189,13 @@ class TimelinePanel(Static):
     snapshot: reactive[Optional[StepSnapshot]] = reactive(None)
 
     def render(self) -> str:
-        snap = self.snapshot
-        if snap is None:
-            return "[dim]Loading…[/dim]"
-
-        total = snap.total_steps
-        step  = snap.step
-
-        # ── Scrub bar ──────────────────────────────────────────
-        bar_len = 18
-        if total > 1:
-            pos = int((step / (total - 1)) * (bar_len - 1))
-        else:
-            pos = 0
-        bar = ["─"] * bar_len
-        bar[pos] = "●"
-        pct = int((step / max(total - 1, 1)) * 100)
-        scrub = f"[{''.join(bar)}]"
-
-        # ── Timestamp (time portion only) ──────────────────────
-        ts = snap.timestamp
-        time_part = ts[11:19] if len(ts) >= 19 else ts
-
-        # ── Function breadcrumb ────────────────────────────────
-        fn = snap.function_name or "<module>"
-
-        # ── Compose output ─────────────────────────────────────
-        lines = [
-            "[bold $accent]⏱  TIMELINE[/bold $accent]",
-            "",
-            f"[bold]{scrub}[/bold]",
-            f"[dim]{pct:3d}%[/dim]",
-            "",
-            f"[bold]Step[/bold]",
-            f"  [cyan]{step:>4}[/cyan] [dim]/ {total - 1}[/dim]",
-            "",
-            f"[bold]Line[/bold]",
-            f"  [green]{snap.line_number}[/green]",
-            "",
-            f"[bold]Function[/bold]",
-            f"  [magenta]{fn}[/magenta]",
-            "",
-            f"[bold]Time[/bold]",
-            f"  [dim]{time_part}[/dim]",
-            "",
-            "─" * (bar_len + 2),
-            "",
-            "[dim]  ← →  step[/dim]",
-            "[dim]  PgUp/Dn  ×10[/dim]",
-            "[dim]  Home/End jump[/dim]",
-            "[dim]  g  goto step[/dim]",
-            "[dim]  q  quit[/dim]",
-        ]
+        lines = []
+        for i, line in enumerate(DUMMY_CODE, start=1):
+            if i == self.active_line:
+                # Highlight the active line with a marker and reverse video
+                lines.append(f"[reverse]▶ {i:3} | {line}[/reverse]")
+            else:
+                lines.append(f"  {i:3} | {line}")
         return "\n".join(lines)
 
 
@@ -417,50 +370,35 @@ class PyChronicleApp(App):
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
     def on_mount(self) -> None:
-        self.sub_title = (
-            f"{os.path.basename(self._file_path)} — "
-            f"{self._total} step{'s' if self._total != 1 else ''}"
-            if self._file_path
-            else f"{self._total} step{'s' if self._total != 1 else ''}"
-        )
-        if self._total == 0:
-            self.notify(
-                "No execution steps found in the database.",
-                severity="warning",
-                timeout=5,
-            )
-            return
-        self._refresh_panels()
-
-    # ── Reactive watcher ───────────────────────────────────────────────────
-
-    def watch_current_step(self, _old: int, new: int) -> None:
-        self._refresh_panels()
-
-    # ── Panel refresh ──────────────────────────────────────────────────────
-
-    def _refresh_panels(self) -> None:
-        """Fetch snapshot for the current step and push to all panels."""
-        step = self.current_step
-        snap = ds.get_snapshot(self._conn, step)
-
-        # Inject previous-variable dict so the Variables panel can diff
-        vars_panel = self.query_one("#vars_panel", VariablesPanel)
-        vars_panel.prev_vars = dict(self._prev_vars)
-        vars_panel.snapshot  = snap
-
-        # Source panel
-        source_view = self.query_one("#source_view", SourceView)
-        source_view.active_line = snap.line_number
-
-        # Timeline panel
-        timeline = self.query_one("#timeline_panel", TimelinePanel)
-        timeline.snapshot = snap
-
-        # Update previous vars AFTER rendering
-        self._prev_vars = dict(snap.variables)
-
-    # ── Actions ────────────────────────────────────────────────────────────
+        self.max_step = len(DUMMY_TRACE) - 1
+        self.update_panes()
+        
+    def watch_current_step(self, old_step: int, new_step: int) -> None:
+        """Triggered automatically whenever current_step changes."""
+        self.update_panes()
+        
+    def update_panes(self) -> None:
+        """Syncs the child panes with the current step's data."""
+        # --- SWAP-IN POINT FOR SQLITE ---
+        # When integrating with storage.py, you would do something like:
+        # events = get_state_at(conn, self.current_step)
+        # variables = {row[5]: row[6] for row in events} # variable_name -> variable_value
+        # active_line = ... (you might need to fetch the active line from a different query or logic)
+        
+        trace_data = DUMMY_TRACE[self.current_step]
+        active_line = trace_data["line"]
+        variables = trace_data["vars"]
+        
+        # Update CodeView
+        code_view = self.query_one(CodeView)
+        code_view.active_line = active_line
+        
+        # Update TimelineView
+        timeline = self.query_one(TimelineView)
+        timeline.current_step = self.current_step
+        timeline.max_step = self.max_step
+        timeline.active_line = active_line
+        timeline.variables = variables
 
     def action_step_back(self) -> None:
         if self.current_step > 0:

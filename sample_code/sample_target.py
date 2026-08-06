@@ -1,20 +1,20 @@
-from src.delta_compression import DeltaCompressor
+def calculate_sum(limit):
+    total = 0
+
+    for i in range(limit):
+        total += i
+
+    return total
 
 
-compressor = DeltaCompressor()
+def main():
+    target = 5
+    result = calculate_sum(target)
+    final_message = "Done"
 
-states = [
-    ("age", 20),
-    ("age", 20),
-    ("age", 25),
-    ("age", 25)
-]
+    print("Result:", result)
+    print(final_message)
 
 
-for name, value in states:
-    result = compressor.should_store(name, value)
-
-    if result:
-        print(f"Store: {name} = {value}")
-    else:
-        print(f"Skip: {name} = {value}")
+if __name__ == "__main__":
+    main()
