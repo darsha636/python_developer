@@ -14,13 +14,13 @@ from storage import (
 def run_week3_integration():
 
     previous_state = {
-        "name": "Raji",
+        "name": "samhitha",
         "age": 21,
         "city": "Hyderabad"
     }
 
     current_state = {
-        "name": "Raji",
+        "name": "samhitha",
         "age": 22,
         "city": "Hyderabad",
         "salary": 35000
