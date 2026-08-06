@@ -31,7 +31,9 @@ import os
 from typing import Optional
 
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static
+from textual.screen import ModalScreen
+from textual.containers import Vertical, Horizontal, ScrollableContainer
+from textual.widgets import Header, Footer, Static, Input, Label
 from textual.reactive import reactive
 from textual.binding import Binding
 
@@ -178,7 +180,7 @@ class TimelinePanel(Static):
 
     DEFAULT_CSS = """
     TimelinePanel {
-        width: 24;
+        width: 30;
         height: 100%;
         border: solid $accent-darken-2;
         padding: 1 2;
@@ -189,13 +191,29 @@ class TimelinePanel(Static):
     snapshot: reactive[Optional[StepSnapshot]] = reactive(None)
 
     def render(self) -> str:
-        lines = []
-        for i, line in enumerate(DUMMY_CODE, start=1):
-            if i == self.active_line:
-                # Highlight the active line with a marker and reverse video
-                lines.append(f"[reverse]▶ {i:3} | {line}[/reverse]")
-            else:
-                lines.append(f"  {i:3} | {line}")
+        snap = self.snapshot
+        if snap is None:
+            return "[dim]Loading…[/dim]"
+
+        lines = [
+            "[bold $accent]⏱ TIMELINE[/bold $accent]",
+            f"Step: [bold]{snap.step}[/bold] / {snap.total_steps - 1}",
+            f"Line: {snap.line_number}",
+            f"Func: [cyan]{snap.function_name}[/cyan]",
+            f"Time: {snap.timestamp}",
+        ]
+
+        # ASCII Scrub bar
+        bar_width = 24
+        if snap.total_steps > 1:
+            progress = int((snap.step / (snap.total_steps - 1)) * bar_width)
+        else:
+            progress = 0
+
+        bar = ("█" * progress) + ("░" * (bar_width - progress))
+        lines.append("")
+        lines.append(f"[bold blue]{bar}[/bold blue]")
+
         return "\n".join(lines)
 
 
@@ -370,7 +388,6 @@ class PyChronicleApp(App):
     # ── Lifecycle ──────────────────────────────────────────────────────────
 
     def on_mount(self) -> None:
-        self.max_step = len(DUMMY_TRACE) - 1
         self.update_panes()
         
     def watch_current_step(self, old_step: int, new_step: int) -> None:
@@ -379,26 +396,23 @@ class PyChronicleApp(App):
         
     def update_panes(self) -> None:
         """Syncs the child panes with the current step's data."""
-        # --- SWAP-IN POINT FOR SQLITE ---
-        # When integrating with storage.py, you would do something like:
-        # events = get_state_at(conn, self.current_step)
-        # variables = {row[5]: row[6] for row in events} # variable_name -> variable_value
-        # active_line = ... (you might need to fetch the active line from a different query or logic)
+        if not self._conn or self._total == 0:
+            return
+
+        snapshot = ds.get_snapshot(self._conn, self.current_step)
         
-        trace_data = DUMMY_TRACE[self.current_step]
-        active_line = trace_data["line"]
-        variables = trace_data["vars"]
+        # Update SourceView
+        source_view = self.query_one(SourceView)
+        source_view.active_line = snapshot.line_number
         
-        # Update CodeView
-        code_view = self.query_one(CodeView)
-        code_view.active_line = active_line
-        
-        # Update TimelineView
-        timeline = self.query_one(TimelineView)
-        timeline.current_step = self.current_step
-        timeline.max_step = self.max_step
-        timeline.active_line = active_line
-        timeline.variables = variables
+        # Update TimelinePanel
+        timeline = self.query_one(TimelinePanel)
+        timeline.snapshot = snapshot
+
+        # Update VariablesPanel
+        vars_panel = self.query_one(VariablesPanel)
+        vars_panel.snapshot = snapshot
+        vars_panel.prev_vars = self._prev_vars
 
     def action_step_back(self) -> None:
         if self.current_step > 0:
