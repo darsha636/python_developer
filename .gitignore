@@ -3,3 +3,7 @@ venv/
 __pycache__/
 *.pyc
 pychronicle.db
+week4_test_env/
+build/
+dist/
+*.egg-info/
